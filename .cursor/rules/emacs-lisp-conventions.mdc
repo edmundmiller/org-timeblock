@@ -1,0 +1,109 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Emacs Lisp Conventions for org-timeblock
+
+## File Header Standards
+Every Emacs Lisp file must include:
+- File header with package description and lexical binding declaration
+- Copyright notice with author information 
+- Version and Package-Requires declarations
+- Keywords and URL metadata
+- GPL license header
+- Commentary section explaining the file's purpose
+
+Example header pattern:
+```elisp
+;;; filename.el --- Brief description -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2023  Author Name
+
+;; Author: Author Name <email@example.com>
+;; Version: 0.2
+;; Package-Requires: ((emacs "28.1") (compat "29.1.4.1") (org "9.0") (svg "1.1"))
+;; Keywords: org, calendar, timeblocking, agenda
+;; URL: https://github.com/ichernyshovvv/org-timeblock
+
+;;; License: [GPL license text]
+
+;;; Commentary:
+;; Description of what this file does
+
+;;; Code:
+```
+
+## Naming Conventions
+- All functions, variables, and symbols must use the `org-timeblock-` namespace prefix
+- Use kebab-case for all symbol names (e.g., `org-timeblock-get-entries`)
+- Interactive commands should be descriptive (e.g., `org-timeblock-clock-in`)
+- Internal/helper functions can use double-dash (e.g., `org-timeblock--internal-function`)
+- Buffer names use asterisks (e.g., `*org-timeblock*`, `*org-timeblock-list*`)
+
+## Function Documentation
+- All public functions must have docstrings
+- Interactive functions should explain their behavior and key bindings
+- Use proper argument documentation format
+- Include usage examples for complex functions
+
+Example:
+```elisp
+(defun org-timeblock-forward-block ()
+  "Move to the next block in the current column.
+This function navigates through time blocks vertically,
+staying within the currently selected day column."
+  (interactive)
+  ...)
+```
+
+## Code Organization Patterns
+- Group related functions with clear section headers using `;;;;`
+- Separate requirements, configuration, interactive commands, and internal functions
+- Use `declare-function` for forward declarations
+- Place autoload cookies on interactive entry points
+
+Section header format:
+```elisp
+;;;; Interactive Commands
+
+;;;; Navigation Functions  
+
+;;;; Helper Functions
+```
+
+## Variable and Configuration Patterns
+- Use `defcustom` for user-configurable options
+- Use `defvar` for internal state variables
+- Buffer-local variables should be clearly documented
+- Configuration variables should have appropriate :group, :type, and :safe properties
+
+## Error Handling
+- Use `user-error` for user-facing error messages
+- Use `error` for programming errors
+- Validate inputs in interactive functions
+- Provide helpful error messages that guide users
+
+## Integration Patterns
+- Use `require` for hard dependencies
+- Use `eval-when-compile` and `declare-function` for optional dependencies
+- Check for feature availability before using optional functionality
+- Follow org-mode integration patterns for agenda and scheduling
+
+## Testing Conventions
+- Test files should be in the `test/` directory
+- Test functions should use `ert` framework
+- Test file naming: `test-[feature].el`
+- Include both unit tests and integration tests
+
+## Performance Considerations
+- Use `with-current-buffer` for buffer operations
+- Cache expensive computations when possible
+- Use `inhibit-read-only` sparingly and restore properly
+- Be mindful of frequent redraw operations
+
+## SVG and Display Patterns
+- SVG operations should be grouped in drawing modules
+- Use proper scaling calculations for responsive display
+- Handle window size changes gracefully
+- Cache SVG elements when possible for performance

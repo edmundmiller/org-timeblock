@@ -1,0 +1,261 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Debugging and Development Patterns for org-timeblock
+
+## Development Workflow
+
+### Interactive Development
+```elisp
+;; Reload package during development
+(defun org-timeblock-reload-package ()
+  "Reload all org-timeblock modules for development."
+  (interactive)
+  (mapc (lambda (feature)
+          (when (featurep feature)
+            (unload-feature feature t)))
+        '(org-timeblock org-timeblock-draw org-timeblock-modes 
+          org-timeblock-config org-timeblock-util org-timeblock-org))
+  (load-file "org-timeblock.el")
+  (message "org-timeblock package reloaded"))
+```
+
+### Live Configuration Testing
+```elisp
+;; Test configuration changes without restart
+(defun org-timeblock-test-config-change (var value)
+  "Test a configuration change and see immediate effect."
+  (let ((old-value (symbol-value var)))
+    (set var value)
+    (org-timeblock-redraw-buffers)
+    (message "Testing %s = %s (was %s)" var value old-value)))
+```
+
+## Debugging Patterns
+
+### Debug Message System
+```elisp
+;; Debug logging with levels
+(defvar org-timeblock-debug-level 0
+  "Debug level: 0=none, 1=errors, 2=warnings, 3=info, 4=verbose")
+
+(defun org-timeblock-debug (level format-string &rest args)
+  "Debug logging with configurable levels."
+  (when (>= org-timeblock-debug-level level)
+    (apply #'message (concat "[org-timeblock] " format-string) args)))
+```
+
+### State Inspection Functions
+```elisp
+(defun org-timeblock-inspect-state ()
+  "Display current org-timeblock state for debugging."
+  (interactive)
+  (with-output-to-temp-buffer "*org-timeblock-debug*"
+    (princ (format "Date Range: %s to %s\n" 
+                   (car org-timeblock-daterange)
+                   (cdr org-timeblock-daterange)))
+    (princ (format "Current Column: %d\n" org-timeblock-column))
+    (princ (format "SVG Dimensions: %dx%d\n" 
+                   org-timeblock-svg-width 
+                   org-timeblock-svg-height))
+    (princ (format "Entries Count: %d\n" 
+                   (length (org-timeblock-get-entries 
+                           (car org-timeblock-daterange)
+                           (cdr org-timeblock-daterange)))))))
+```
+
+### Performance Profiling
+```elisp
+;; Profile slow operations
+(defun org-timeblock-profile-redraw ()
+  "Profile the redraw operation to identify bottlenecks."
+  (interactive)
+  (let ((start-time (current-time)))
+    (org-timeblock-redraw-buffers)
+    (message "Redraw took: %.3f seconds" 
+             (float-time (time-subtract (current-time) start-time)))))
+```
+
+## Error Handling and Recovery
+
+### Graceful Degradation
+```elisp
+(defun org-timeblock-safe-operation (operation &optional fallback)
+  "Execute OPERATION with error handling and optional FALLBACK."
+  (condition-case err
+      (funcall operation)
+    (error 
+     (org-timeblock-debug 1 "Error in operation: %s" (error-message-string err))
+     (when fallback (funcall fallback))
+     nil)))
+```
+
+### Buffer State Recovery
+```elisp
+(defun org-timeblock-recover-buffer-state ()
+  "Recover from corrupted buffer state."
+  (interactive)
+  (org-timeblock-debug 2 "Recovering buffer state")
+  (with-current-buffer (get-buffer-create org-timeblock-buffer)
+    (org-timeblock-mode)
+    (setq org-timeblock-daterange
+          (cons (decode-time)
+                (org-timeblock-time-inc 'day (1- org-timeblock-span)
+                                       (decode-time))))
+    (org-timeblock-redraw-buffers)))
+```
+
+### SVG Fallback Handling
+```elisp
+(defun org-timeblock-check-svg-support ()
+  "Check if SVG rendering is available."
+  (if (not (display-graphic-p))
+      (progn
+        (org-timeblock-debug 1 "SVG not supported in terminal")
+        nil)
+    (if (not (fboundp 'svg-create))
+        (progn
+          (org-timeblock-debug 1 "SVG library not available")
+          nil)
+      t)))
+```
+
+## Development Helpers
+
+### Test Data Generation
+```elisp
+(defun org-timeblock-generate-test-data (num-entries)
+  "Generate test entries for development and testing."
+  (interactive "nNumber of test entries: ")
+  (let ((base-time (decode-time)))
+    (dotimes (i num-entries)
+      (let* ((hour (+ 9 (mod i 8)))
+             (title (format "Test Task %d" (1+ i)))
+             (time-str (format "%04d-%02d-%02d %02d:00"
+                              (decoded-time-year base-time)
+                              (decoded-time-month base-time)
+                              (decoded-time-day base-time)
+                              hour)))
+        (with-temp-buffer
+          (insert (format "* TODO %s\nSCHEDULED: <%s>\n" title time-str)))))))
+```
+
+### Configuration Validation
+```elisp
+(defun org-timeblock-validate-config ()
+  "Validate org-timeblock configuration for common issues."
+  (interactive)
+  (let ((issues '()))
+    ;; Check file accessibility
+    (unless (file-exists-p org-timeblock-inbox-file)
+      (push "Inbox file does not exist" issues))
+    
+    ;; Check time range validity
+    (when (and (consp org-timeblock-scale-options)
+               (>= (car org-timeblock-scale-options) 
+                   (cdr org-timeblock-scale-options)))
+      (push "Invalid time scale range" issues))
+    
+    ;; Report issues
+    (if issues
+        (message "Configuration issues: %s" (string-join issues ", "))
+      (message "Configuration is valid"))))
+```
+
+## Common Issues and Solutions
+
+### Performance Issues
+```elisp
+;; Large dataset handling
+(defun org-timeblock-optimize-for-large-datasets ()
+  "Apply optimizations for handling large numbers of entries."
+  (setq org-timeblock-debug-level 0)  ; Reduce debug overhead
+  ;; Enable caching
+  (setq org-timeblock-enable-caching t)
+  ;; Limit visible entries
+  (when (> (length (org-agenda-files)) 10)
+    (message "Consider reducing org-agenda-files for better performance")))
+```
+
+### Memory Management
+```elisp
+(defun org-timeblock-garbage-collect ()
+  "Clean up org-timeblock resources and force garbage collection."
+  (interactive)
+  (setq org-timeblock-svg nil)
+  (clrhash org-timeblock--layout-cache)
+  (garbage-collect)
+  (message "Cleaned up org-timeblock resources"))
+```
+
+### Date/Time Edge Cases
+```elisp
+(defun org-timeblock-handle-dst-transition (time)
+  "Handle daylight saving time transitions safely."
+  (condition-case nil
+      (encode-time time)
+    (error 
+     (org-timeblock-debug 1 "DST transition detected, adjusting time")
+     ;; Adjust time by one hour and retry
+     (let ((adjusted (copy-sequence time)))
+       (setf (decoded-time-hour adjusted) 
+             (mod (1+ (decoded-time-hour adjusted)) 24))
+       (encode-time adjusted)))))
+```
+
+## Development Environment Setup
+
+### Recommended Development Configuration
+```elisp
+;; Development settings
+(setq org-timeblock-debug-level 3)
+(setq debug-on-error t)
+(setq edebug-all-defs t)  ; Enable edebug for all functions
+
+;; Useful development keybindings
+(define-key org-timeblock-mode-map (kbd "C-c C-d") #'org-timeblock-inspect-state)
+(define-key org-timeblock-mode-map (kbd "C-c C-r") #'org-timeblock-reload-package)
+(define-key org-timeblock-mode-map (kbd "C-c C-p") #'org-timeblock-profile-redraw)
+```
+
+### Testing Environment
+```elisp
+(defun org-timeblock-setup-test-env ()
+  "Set up isolated testing environment."
+  (let ((test-dir (make-temp-file "org-timeblock-test" t)))
+    (setq org-timeblock-files (list (expand-file-name "test.org" test-dir)))
+    (setq org-timeblock-inbox-file (car org-timeblock-files))
+    (with-temp-file (car org-timeblock-files)
+      (insert "* TODO Test Task\nSCHEDULED: <2023-10-15 Sun 10:00>\n"))
+    (message "Test environment set up in %s" test-dir)))
+```
+
+## Troubleshooting Guide
+
+### Common Error Patterns
+1. **SVG not displaying**: Check `display-graphic-p` and SVG library availability
+2. **Performance degradation**: Profile with `org-timeblock-profile-redraw`
+3. **Incorrect time display**: Validate timezone and DST handling
+4. **Missing entries**: Check org-agenda-files and file permissions
+5. **Layout issues**: Inspect window dimensions and scaling calculations
+
+### Debug Information Collection
+```elisp
+(defun org-timeblock-collect-debug-info ()
+  "Collect comprehensive debug information for issue reporting."
+  (interactive)
+  (with-output-to-temp-buffer "*org-timeblock-debug-info*"
+    (princ (format "Emacs Version: %s\n" emacs-version))
+    (princ (format "org-timeblock Version: %s\n" 
+                   (or (get 'org-timeblock :version) "development")))
+    (princ (format "Display Type: %s\n" 
+                   (if (display-graphic-p) "graphic" "terminal")))
+    (princ (format "SVG Support: %s\n" 
+                   (if (fboundp 'svg-create) "available" "missing")))
+    (princ (format "Current Configuration:\n"))
+    (princ (format "  Files: %s\n" org-timeblock-files))
+    (princ (format "  Scale: %s\n" org-timeblock-scale-options))
+    (princ (format "  Span: %d\n" org-timeblock-span))))
+```

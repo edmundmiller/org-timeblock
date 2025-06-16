@@ -1,0 +1,191 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# Testing Patterns for org-timeblock
+
+## Test File Organization
+
+### File Structure
+- All tests go in the `test/` directory  
+- Test files follow naming pattern: `test-[feature].el`
+- Main test orchestrator: [org-timeblock-test.el](mdc:test/org-timeblock-test.el)
+- Feature-specific tests: [test-date.el](mdc:test/test-date.el), [test-schedule.el](mdc:test/test-schedule.el), etc.
+
+### Test File Headers
+Follow standard Emacs Lisp conventions with testing focus:
+```elisp
+;;; test-feature.el --- Tests for org-timeblock feature functionality -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2023  Author Name
+
+;; Author: Author Name <email@example.com>
+;; Keywords: test, org-timeblock
+
+;;; Commentary:
+;; Test suite for [specific feature] functionality
+
+;;; Code:
+
+(require 'ert)
+(require 'org-timeblock-feature)
+```
+
+## ERT Testing Framework
+
+### Test Function Naming
+- Use descriptive names: `org-timeblock-test-[feature]-[specific-behavior]`
+- Group related tests with common prefixes
+- Example: `org-timeblock-test-date-comparison`, `org-timeblock-test-schedule-validation`
+
+### Test Structure Pattern
+```elisp
+(ert-deftest org-timeblock-test-feature-behavior ()
+  "Test that [specific behavior] works correctly.
+More detailed description of what this test validates."
+  ;; Setup
+  (let ((test-data "example"))
+    ;; Exercise
+    (let ((result (org-timeblock-function test-data)))
+      ;; Verify
+      (should (equal expected-result result))
+      (should-not (null result)))))
+```
+
+## Test Categories
+
+### Date and Time Testing
+Examples from [test-date.el](mdc:test/test-date.el):
+- Date comparison functions (`org-timeblock-date<`, `org-timeblock-date=`)
+- Time arithmetic and manipulation
+- Timezone handling and edge cases
+- Date range validation
+
+### Scheduling and Entry Testing  
+Examples from [test-schedule.el](mdc:test/test-schedule.el):
+- Entry parsing and validation
+- Timestamp conversion and formatting
+- Scheduling conflict detection
+- Recurring event handling
+
+### Integration Testing
+- Org-mode integration points
+- Buffer state management
+- Mode switching and navigation
+- Configuration validation
+
+## Test Data Management
+
+### Mock Data Creation
+```elisp
+(defun org-timeblock-test-create-mock-entry (title time)
+  "Create a mock org entry for testing."
+  (propertize title 
+              'org-timeblock-timestamp time
+              'marker (point-marker)))
+```
+
+### Test Fixtures
+- Use `let` bindings for test isolation
+- Create temporary buffers for buffer-based tests
+- Mock external dependencies (org-agenda, files)
+
+### Date/Time Test Helpers
+```elisp
+(defun org-timeblock-test-decode-time (year month day &optional hour minute)
+  "Helper to create decoded-time for testing."
+  (decode-time (encode-time 0 (or minute 0) (or hour 0) day month year)))
+```
+
+## Assertion Patterns
+
+### Common Assertions
+- `should` for positive assertions
+- `should-not` for negative assertions  
+- `should-error` for expected errors
+- `should-match` for string/regex matching
+
+### Time-Specific Assertions
+```elisp
+;; Date equality testing
+(should (org-timeblock-date= expected-date actual-date))
+
+;; Time range validation
+(should (org-timeblock-time-in-range-p test-time start-time end-time))
+
+;; Duration calculations
+(should (= expected-minutes (org-timeblock-time-diff start end)))
+```
+
+## Test Isolation
+
+### Buffer Management
+```elisp
+(ert-deftest org-timeblock-test-buffer-operations ()
+  "Test buffer operations in isolation."
+  (with-temp-buffer
+    (org-mode)
+    ;; Test operations that modify buffer state
+    (should (eq major-mode 'org-mode))))
+```
+
+### State Cleanup
+- Restore global variables after tests
+- Clean up created files and buffers
+- Reset configuration to default values
+
+### Time Mocking
+```elisp
+;; Mock current time for predictable tests
+(let ((current-time-string "2023-10-15"))
+  (cl-letf (((symbol-function 'current-time)
+             (lambda () (org-time-string-to-time current-time-string))))
+    ;; Test time-dependent functionality
+    ))
+```
+
+## Performance Testing
+
+### Timing Critical Operations
+```elisp
+(ert-deftest org-timeblock-test-performance-large-dataset ()
+  "Test performance with large number of entries."
+  (let ((large-entry-list (make-list 1000 test-entry)))
+    (should (< (benchmark-elapse 
+                (org-timeblock-process-entries large-entry-list))
+               1.0)))) ; Should complete within 1 second
+```
+
+## Error Testing
+
+### Input Validation
+```elisp
+(ert-deftest org-timeblock-test-invalid-input-handling ()
+  "Test that invalid inputs are handled gracefully."
+  ;; Test nil inputs
+  (should-error (org-timeblock-function nil) :type 'wrong-type-argument)
+  
+  ;; Test malformed data
+  (should-error (org-timeblock-parse-time "invalid") :type 'error))
+```
+
+## Running Tests
+
+### Individual Test Execution
+- `M-x ert RET test-name RET` - Run specific test
+- `C-u M-x ert RET` - Run tests matching pattern
+
+### Batch Testing
+```elisp
+;; In org-timeblock-test.el
+(defun org-timeblock-run-all-tests ()
+  "Run the complete org-timeblock test suite."
+  (interactive)
+  (ert "org-timeblock-test-"))
+```
+
+### Continuous Integration
+- Tests should be runnable in batch mode: `emacs -batch -l ert -l test-file.el -f ert-run-tests-batch-and-exit`
+- No interactive prompts or dependencies on user configuration
+- Clear pass/fail reporting

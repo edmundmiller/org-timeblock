@@ -1,0 +1,114 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# org-timeblock Project Architecture
+
+## Module Structure
+
+The org-timeblock package is organized into focused modules:
+
+### Core Modules
+- **[org-timeblock.el](mdc:org-timeblock.el)** - Main entry point, interactive commands, autoloads
+- **[org-timeblock-config.el](mdc:org-timeblock-config.el)** - User configuration variables and customization
+- **[org-timeblock-util.el](mdc:org-timeblock-util.el)** - Utility functions for time handling and calculations
+
+### Display and Interaction  
+- **[org-timeblock-draw.el](mdc:org-timeblock-draw.el)** - SVG rendering, visual calendar generation
+- **[org-timeblock-modes.el](mdc:org-timeblock-modes.el)** - Major modes, keymaps, and mode-specific functions
+
+### Integration
+- **[org-timeblock-org.el](mdc:org-timeblock-org.el)** - Org-mode integration, entry parsing, scheduling
+- **[org-timeblock-evil.el](mdc:org-timeblock-evil.el)** - Evil mode integration and keybindings
+
+## Key Data Structures
+
+### Date Ranges
+- `org-timeblock-daterange` - Cons cell of (start-time . end-time) for current view
+- Date ranges use decoded-time format from `decode-time`
+- Span controlled by `org-timeblock-span` variable
+
+### Entries
+- Org entries are represented as text with properties
+- Key properties: `marker`, `id`, `time-string`, `block-height`, `y`
+- Entries filtered by timestamp and date range relevance
+
+### SVG Rendering
+- `org-timeblock-svg` - Main SVG object for the calendar
+- Dynamic sizing based on window dimensions
+- Column-based layout with responsive scaling
+
+## Major Modes
+
+### org-timeblock-mode
+- Primary visual calendar interface
+- SVG-based display with mouse/keyboard interaction
+- Navigation: blocks (vertical), columns (horizontal), days (time range)
+- Buffer: `*org-timeblock*`
+
+### org-timeblock-list-mode  
+- Text-based list view of entries
+- Line-based navigation with syntax highlighting
+- Buffer: `*org-timeblock-list*`
+- Complementary view to the visual calendar
+
+## Core Workflows
+
+### Entry Display Pipeline
+1. **Collection** - `org-timeblock-get-entries` gathers org items in date range
+2. **Filtering** - Entries filtered by timestamp relevance and scale options
+3. **Layout** - Calculate positions, heights, and column placement
+4. **Rendering** - Generate SVG elements for visual display
+
+### Navigation Pattern
+- **Current State** - Track current column (`org-timeblock-column`) and selection
+- **Movement Commands** - Forward/backward for blocks and columns
+- **Date Navigation** - Day earlier/later shifts the entire date range
+- **Redraw Triggers** - Navigation commands trigger buffer redraws
+
+### Time Handling
+- All times use decoded-time format for consistency
+- `org-timeblock-time-*` functions handle time arithmetic
+- Timezone handling through standard Emacs time functions
+- Scale options control visible time range (e.g., 9am-5pm)
+
+## Integration Points
+
+### Org-mode Integration
+- Reads from org agenda files via `org-timeblock-files`
+- Respects org scheduling and timestamp formats
+- Supports org repeater patterns (+, ++, .+)
+- Integrates with org-clock for time tracking
+
+### Buffer Management
+- Separate buffers for calendar and list views
+- Buffer-local variables for state management
+- Redraw functions coordinate updates across views
+- Mode switching maintains current date context
+
+### Configuration System
+- Heavy use of `defcustom` for user preferences
+- Configuration groups for organized customization
+- Runtime configuration changes trigger redraws
+- Safe local variable declarations for project-specific settings
+
+## Extension Points
+
+### Adding New Commands
+- Interactive commands go in [org-timeblock.el](mdc:org-timeblock.el)
+- Mode-specific commands in [org-timeblock-modes.el](mdc:org-timeblock-modes.el)
+- Add keybindings to appropriate mode maps
+- Use autoload cookies for entry points
+
+### Custom Drawing
+- SVG generation functions in [org-timeblock-draw.el](mdc:org-timeblock-draw.el)
+- Follow scale calculation patterns for responsive design
+- Use property-based styling for theme compatibility
+- Cache expensive computations where possible
+
+### New Integrations
+- Follow the pattern in [org-timeblock-evil.el](mdc:org-timeblock-evil.el)
+- Use `eval-when-compile` and feature detection
+- Provide graceful degradation when features unavailable
+- Document integration requirements in package comments

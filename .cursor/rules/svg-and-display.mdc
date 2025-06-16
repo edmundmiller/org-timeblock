@@ -1,0 +1,236 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+# SVG and Display Patterns for org-timeblock
+
+## SVG Architecture
+
+### Core SVG Objects
+- `org-timeblock-svg` - Main SVG container for the entire calendar
+- Dynamic sizing based on window dimensions: `org-timeblock-svg-width`, `org-timeblock-svg-height`
+- Column-based layout with responsive scaling calculations
+
+### SVG Creation Pattern
+```elisp
+(defun org-timeblock-create-svg-calendar ()
+  "Create the main SVG calendar object."
+  (let* ((window (get-buffer-window org-timeblock-buffer))
+         (width (window-body-width window t))
+         (height (window-body-height window t)))
+    (setq org-timeblock-svg-width width
+          org-timeblock-svg-height height
+          org-timeblock-svg (svg-create width height))))
+```
+
+## Scaling and Layout Calculations
+
+### Column Layout
+- `column-width = total-width / number-of-days`
+- Account for timeline padding: `timeline-left-padding = 2 * (default-font-width)`
+- Block max width: `block-width = column-width - timeline-left-padding`
+
+### Time Scaling
+```elisp
+;; Vertical scale calculation
+(let* ((min-hour (or configured-min 0))
+       (max-hour (or configured-max 24))
+       (scale (/ svg-height (float (* (- max-hour min-hour) 60)))))
+  ;; Use scale to convert time to pixel positions
+  (setq y-position (* (- minutes-from-min-hour) scale)))
+```
+
+### Responsive Design Patterns
+- Recalculate layout on window size changes
+- Use font metrics for text sizing: `(default-font-width)`, `(default-font-height)`
+- Maintain aspect ratios for visual consistency
+
+## Block Rendering
+
+### Block Positioning
+```elisp
+;; Block position calculation
+(add-text-properties 
+ 0 (length entry)
+ `(block-height ,(calculate-block-height start-time end-time scale)
+   y ,(calculate-y-position start-time min-hour scale)
+   x ,(* column-index column-width)))
+```
+
+### Visual Properties
+- Use text properties for styling: `block-height`, `y`, `x`, `time-string`
+- Color theming through face attributes
+- Support for different block types (scheduled, deadline, event)
+
+### Collision Detection
+```elisp
+;; Handle overlapping blocks
+(defun org-timeblock-handle-block-collisions (blocks)
+  "Adjust block widths and positions for overlapping time blocks."
+  (let ((columns (mapcar (lambda (x) (cons (get-text-property 0 'id x) 1)) blocks)))
+    ;; Calculate column assignments for overlapping blocks
+    ))
+```
+
+## Time Indicator and Grid
+
+### Current Time Indicator
+```elisp
+(when org-timeblock-current-time-indicator
+  (let ((cur-time-y (* scale (- current-minutes min-hour-minutes))))
+    (svg-line svg 0 cur-time-y width cur-time-y
+              :stroke current-time-color
+              :stroke-width 2)))
+```
+
+### Hour Grid Lines
+```elisp
+;; Draw horizontal hour lines
+(dotimes (hour (- max-hour min-hour))
+  (let ((y (* hour 60 scale)))
+    (svg-line svg timeline-padding y width y
+              :stroke hour-line-color
+              :stroke-width 1)))
+```
+
+### Column Separators
+```elisp
+;; Vertical day separators
+(dotimes (col (1- num-columns))
+  (let ((x (* (1+ col) column-width)))
+    (svg-line svg x 0 x height
+              :stroke separator-color
+              :stroke-width 1)))
+```
+
+## Text Rendering
+
+### Block Text Placement
+```elisp
+(svg-text svg text-content
+          :x (+ block-x text-padding)
+          :y (+ block-y text-baseline)
+          :font-size font-size
+          :fill text-color
+          :text-anchor "start")
+```
+
+### Font Sizing and Metrics
+- Use `(default-font-height)` for base font calculations
+- Scale text size based on block height
+- Ensure text fits within block boundaries
+- Handle text truncation for small blocks
+
+### Time Labels
+```elisp
+;; Hour labels on timeline
+(dotimes (hour (- max-hour min-hour))
+  (svg-text svg (format "%02d:00" (+ min-hour hour))
+            :x timeline-label-x
+            :y (+ (* hour 60 scale) text-baseline)
+            :font-size timeline-font-size
+            :fill timeline-text-color))
+```
+
+## Color and Theming
+
+### Face-Based Styling
+```elisp
+;; Extract colors from Emacs faces
+(let ((bg-color (face-attribute 'org-timeblock-block :background nil t))
+      (fg-color (face-attribute 'org-timeblock-block :foreground nil t)))
+  (svg-rectangle svg x y width height
+                 :fill bg-color
+                 :stroke fg-color))
+```
+
+### Theme Integration
+- Respect user's color theme choices
+- Provide fallback colors for undefined faces
+- Support both light and dark themes
+- Use semantic color names (foreground, background, accent)
+
+### Status-Based Coloring
+```elisp
+;; Different colors for different org states
+(pcase (org-get-todo-state)
+  ("TODO" (face-attribute 'org-todo :foreground))
+  ("DONE" (face-attribute 'org-done :foreground))
+  ("CANCELLED" (face-attribute 'org-warning :foreground)))
+```
+
+## Performance Optimization
+
+### Caching Strategies
+```elisp
+;; Cache expensive calculations
+(defvar org-timeblock--layout-cache nil
+  "Cache for layout calculations to avoid recomputation.")
+
+(defun org-timeblock-get-cached-layout (dates entries)
+  "Get or compute layout for given dates and entries."
+  (or (gethash (list dates entries) org-timeblock--layout-cache)
+      (puthash (list dates entries) 
+               (org-timeblock-compute-layout dates entries)
+               org-timeblock--layout-cache)))
+```
+
+### Incremental Updates
+- Only redraw changed regions when possible
+- Use dirty flags to track what needs recomputation
+- Batch SVG operations for better performance
+
+### Memory Management
+```elisp
+;; Clean up old SVG objects
+(defun org-timeblock-cleanup-svg ()
+  "Clean up SVG resources and caches."
+  (setq org-timeblock-svg nil
+        org-timeblock--layout-cache (make-hash-table :test 'equal)))
+```
+
+## Interactive Elements
+
+### Mouse Event Handling
+```elisp
+;; Add click handlers to SVG elements
+(svg-rectangle svg x y width height
+               :fill block-color
+               :pointer-events "all"
+               :onclick (format "org-timeblock-select-block('%s')" block-id))
+```
+
+### Hover Effects
+- Visual feedback for mouse hover
+- Tooltip display for additional information
+- Cursor changes for interactive elements
+
+### Selection Indicators
+```elisp
+;; Highlight selected block
+(when (equal block-id selected-block-id)
+  (svg-rectangle svg (- x 2) (- y 2) (+ width 4) (+ height 4)
+                 :fill "none"
+                 :stroke selection-color
+                 :stroke-width 3))
+```
+
+## Error Handling and Edge Cases
+
+### Invalid Time Ranges
+```elisp
+(when (and start-time end-time (time-less-p end-time start-time))
+  (message "Warning: Invalid time range for entry: %s" entry-title)
+  (setq end-time (time-add start-time (* 60 30)))) ; Default 30 min duration
+```
+
+### Window Size Edge Cases
+- Handle very small windows gracefully
+- Provide minimum viable display
+- Scale appropriately for different screen sizes
+
+### SVG Limitations
+- Check SVG feature availability
+- Provide text-based fallback for environments without SVG support
+- Handle malformed SVG gracefully
