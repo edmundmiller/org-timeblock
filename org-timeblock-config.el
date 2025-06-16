@@ -263,6 +263,12 @@ in both `org-timeblock-mode' and `org-timeblock-list-mode'."
 (defvar org-timeblock-column 1
   "Currently selected column.")
 
+(defvar org-timeblock-selected-block-id nil
+  "ID of the currently selected block.")
+
+(defvar org-timeblock-selected-block-index 0
+  "Index of the currently selected block within the current column.")
+
 (defvar org-timeblock-cache nil)
 (defvar org-timeblock-svg nil)
 (defvar org-timeblock-svg-width 0)

@@ -131,6 +131,184 @@ The new task is created in `org-timeblock-inbox-file'"
       (save-buffer)))
   (org-timeblock-redraw-buffers))
 
+;;;;; Entry Actions
+
+;;;###autoload
+(defun org-timeblock-goto ()
+  "Go to the entry of the selected block."
+  (interactive)
+  (when-let ((marker (org-timeblock-selected-block-marker)))
+    (switch-to-buffer (marker-buffer marker))
+    (goto-char marker)
+    (org-timeblock-show-context)))
+
+;;;###autoload
+(defun org-timeblock-goto-other-window ()
+  "Go to the entry of the selected block in other window."
+  (interactive)
+  (when-let ((marker (org-timeblock-selected-block-marker)))
+    (switch-to-buffer-other-window (marker-buffer marker))
+    (goto-char marker)
+    (org-timeblock-show-context)))
+
+;;;###autoload
+(defun org-timeblock-schedule ()
+  "Schedule the selected block to a different time."
+  (interactive)
+  (when-let ((marker (org-timeblock-selected-block-marker)))
+    (org-with-point-at marker
+      (org-timeblock-show-context)
+      (call-interactively #'org-schedule))
+    (org-timeblock-redraw-buffers)))
+
+;;;###autoload
+(defun org-timeblock-set-duration ()
+  "Set the duration of the selected block."
+  (interactive)
+  (when-let ((marker (org-timeblock-selected-block-marker)))
+    (let ((duration (org-timeblock-read-duration)))
+      (org-timeblock--duration duration marker)
+      (org-timeblock-redraw-buffers))))
+
+;;;###autoload
+(defun org-timeblock-todo ()
+  "Change the TODO state of the selected block."
+  (interactive)
+  (when-let ((marker (org-timeblock-selected-block-marker)))
+    (org-with-point-at marker
+      (org-timeblock-show-context)
+      (org-todo))
+    (org-timeblock-redraw-buffers)))
+
+;;;;; View Options
+
+;;;###autoload
+(defun org-timeblock-jump-to-day ()
+  "Jump to a specific day."
+  (interactive)
+  (let* ((date (org-read-date nil t))
+         (decoded-date (decode-time date)))
+    (setq org-timeblock-daterange
+          (cons decoded-date
+                (org-timeblock-time-inc 'day (1- org-timeblock-span) decoded-date)))
+    (setq org-timeblock-column 1)
+    (org-timeblock-redraw-buffers)
+    (message "Jumped to %s" (org-timeblock-format-time "%Y-%m-%d" decoded-date))))
+
+;;;###autoload
+(defun org-timeblock-switch-scaling ()
+  "Switch between different scaling options."
+  (interactive)
+  (setq org-timeblock-scale-options
+        (pcase org-timeblock-scale-options
+          (`t nil)
+          (`nil 'hide-all)
+          (`hide-all t)))
+  (org-timeblock-redraw-buffers)
+  (message "Switched scaling to: %s" org-timeblock-scale-options))
+
+;;;###autoload
+(defun org-timeblock-change-span ()
+  "Change the number of days displayed."
+  (interactive)
+  (let ((new-span (read-number "Number of days to display: " org-timeblock-span)))
+    (setq org-timeblock-span new-span)
+    (setq org-timeblock-daterange
+          (cons (car org-timeblock-daterange)
+                (org-timeblock-time-inc 'day (1- new-span) (car org-timeblock-daterange))))
+    (org-timeblock-redraw-buffers)
+    (message "Changed span to %d days" new-span)))
+
+;;;;; Marking Functions
+
+;;;###autoload
+(defun org-timeblock-mark-block ()
+  "Mark the currently selected block."
+  (interactive)
+  (message "Block marking not yet implemented"))
+
+;;;###autoload
+(defun org-timeblock-mark-by-regexp ()
+  "Mark blocks by regexp."
+  (interactive)
+  (message "Regexp marking not yet implemented"))
+
+;;;###autoload
+(defun org-timeblock-unmark-block ()
+  "Unmark the currently selected block."
+  (interactive)
+  (message "Block unmarking not yet implemented"))
+
+;;;###autoload
+(defun org-timeblock-unmark-all-blocks ()
+  "Unmark all blocks."
+  (interactive)
+  (message "Unmarking all blocks not yet implemented"))
+
+;;;;; List Mode Functions
+
+;;;###autoload
+(defun org-timeblock-list-goto ()
+  "Go to the entry at point in list mode."
+  (interactive)
+  (when-let ((marker (get-text-property (line-beginning-position) 'marker)))
+    (switch-to-buffer (marker-buffer marker))
+    (goto-char marker)
+    (org-timeblock-show-context)))
+
+;;;###autoload
+(defun org-timeblock-list-goto-other-window ()
+  "Go to the entry at point in other window in list mode."
+  (interactive)
+  (when-let ((marker (get-text-property (line-beginning-position) 'marker)))
+    (switch-to-buffer-other-window (marker-buffer marker))
+    (goto-char marker)
+    (org-timeblock-show-context)))
+
+;;;###autoload
+(defun org-timeblock-list-set-duration ()
+  "Set duration for the entry at point in list mode."
+  (interactive)
+  (when-let ((marker (get-text-property (line-beginning-position) 'marker)))
+    (let ((duration (org-timeblock-read-duration)))
+      (org-timeblock--duration duration marker)
+      (org-timeblock-redraw-buffers))))
+
+;;;###autoload
+(defun org-timeblock-list-schedule ()
+  "Schedule the entry at point in list mode."
+  (interactive)
+  (when-let ((marker (get-text-property (line-beginning-position) 'marker)))
+    (org-with-point-at marker
+      (org-timeblock-show-context)
+      (call-interactively #'org-schedule))
+    (org-timeblock-redraw-buffers)))
+
+;;;###autoload
+(defun org-timeblock-list-get-current-date ()
+  "Get the current date in list mode."
+  (car org-timeblock-daterange))
+
+;;;###autoload
+(defun org-timeblock-quit ()
+  "Quit org-timeblock list mode."
+  (interactive)
+  (quit-window))
+
+;;;###autoload
+(defun org-timeblock-toggle-timeblock-list ()
+  "Toggle between timeblock and list views."
+  (interactive)
+  (if (eq major-mode 'org-timeblock-mode)
+      (org-timeblock-list)
+    (org-timeblock)))
+
+;;;###autoload
+(defun org-timeblock-list-toggle-timeblock ()
+  "Toggle from list view to timeblock view."
+  (interactive)
+  (org-timeblock))
+
 (provide 'org-timeblock)
 
 ;;; org-timeblock.el ends here

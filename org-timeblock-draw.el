@@ -331,34 +331,44 @@
 			  (push (list (get-text-property 0 'id entry)
 				      (get-text-property 0 'marker entry))
 				org-timeblock-data)
-			  ;; Appending generated rectangle for current entry
-			  (svg-rectangle
-			   org-timeblock-svg x y block-width block-height
-			   :column (1+ iter)
-			   :stroke
-			   (if (eq 'event (org-timeblock-get-ts-type entry))
-			       "#5b0103" "#cdcdcd")
-			   :stroke-width
-			   (if (eq 'event (org-timeblock-get-ts-type entry))
-			       2 1)
-			   :opacity "0.7"
-			   :order (cl-incf order)
-			   :fill
-			   (or
-			    (and
-			     (eq 'deadline (org-timeblock-get-ts-type entry))
-			     "#5b0103")
-			    (and face (face-attribute face :background nil 'default))
-			    (face-attribute
-			     (org-timeblock-get-saved-random-face title)
-			     :background nil 'default))
-			   ;; Same timestamp can be displayed in multiple
-			   ;; columns, so _column-number postfix is used to tell
-			   ;; that blocks apart
-			   :id (format "%s_%d"
-				       (get-text-property 0 'id entry)
-				       (1+ iter))
-			   :type (org-timeblock-get-ts-type entry))
+			  ;; Check if this is the selected block
+			  (let* ((entry-id (get-text-property 0 'id entry))
+				 (is-selected (and org-timeblock-selected-block-id
+						  (string= entry-id org-timeblock-selected-block-id))))
+			    ;; Appending generated rectangle for current entry
+			    (svg-rectangle
+			     org-timeblock-svg x y block-width block-height
+			     :column (1+ iter)
+			     :stroke
+			     (cond
+			      (is-selected 
+			       (face-attribute 'org-timeblock-select :background nil 'default))
+			      ((eq 'event (org-timeblock-get-ts-type entry))
+			       "#5b0103")
+			      (t "#cdcdcd"))
+			     :stroke-width
+			     (cond
+			      (is-selected 4)
+			      ((eq 'event (org-timeblock-get-ts-type entry)) 2)
+			      (t 1))
+			     :opacity "0.7"
+			     :order (cl-incf order)
+			     :fill
+			     (or
+			      (and
+			       (eq 'deadline (org-timeblock-get-ts-type entry))
+			       "#5b0103")
+			      (and face (face-attribute face :background nil 'default))
+			      (face-attribute
+			       (org-timeblock-get-saved-random-face title)
+			       :background nil 'default))
+			     ;; Same timestamp can be displayed in multiple
+			     ;; columns, so _column-number postfix is used to tell
+			     ;; that blocks apart
+			     :id (format "%s_%d"
+				     (get-text-property 0 'id entry)
+				     (1+ iter))
+			     :type (org-timeblock-get-ts-type entry)))
 			  ;; Setting the title of current entry
 			  (let ((y (- y 5)))
 			    (dolist (heading-part heading-list)
@@ -539,6 +549,25 @@ SVG image (.svg), PDF (.pdf) is produced."
                                                   (org-timeblock-get-ts-prop entry))))
                 (insert entry "\n")))))
         (org-timeblock-list-mode-set-highlights)))))
+
+;;;###autoload
+(defun org-timeblock-selected-block-marker ()
+  "Return the marker of the currently selected block."
+  (when org-timeblock-selected-block-id
+    (cadr (seq-find (lambda (x) (string= (car x) org-timeblock-selected-block-id)) 
+                    org-timeblock-data))))
+
+;;;###autoload
+(defun org-timeblock-select-block-with-cursor ()
+  "Select a block using mouse cursor."
+  (interactive)
+  (message "Mouse block selection not yet implemented"))
+
+;;;###autoload
+(defun org-timeblock-unselect-block ()
+  "Unselect the currently selected block."
+  (interactive)
+  (message "Block unselection not yet implemented"))
 
 (provide 'org-timeblock-draw)
 

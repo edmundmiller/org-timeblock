@@ -43,6 +43,30 @@
 (declare-function org-timeblock-write "org-timeblock-draw")
 (declare-function org-timeblock-select-block-with-cursor "org-timeblock-draw")
 
+;; Declare functions from main org-timeblock.el
+(declare-function org-timeblock-goto "org-timeblock")
+(declare-function org-timeblock-goto-other-window "org-timeblock")
+(declare-function org-timeblock-schedule "org-timeblock")
+(declare-function org-timeblock-set-duration "org-timeblock")
+(declare-function org-timeblock-todo "org-timeblock")
+(declare-function org-timeblock-jump-to-day "org-timeblock")
+(declare-function org-timeblock-switch-scaling "org-timeblock")
+(declare-function org-timeblock-change-span "org-timeblock")
+(declare-function org-timeblock-mark-block "org-timeblock")
+(declare-function org-timeblock-mark-by-regexp "org-timeblock")
+(declare-function org-timeblock-unmark-block "org-timeblock")
+(declare-function org-timeblock-unmark-all-blocks "org-timeblock")
+(declare-function org-timeblock-list-goto "org-timeblock")
+(declare-function org-timeblock-list-goto-other-window "org-timeblock")
+(declare-function org-timeblock-list-set-duration "org-timeblock")
+(declare-function org-timeblock-list-schedule "org-timeblock")
+(declare-function org-timeblock-quit "org-timeblock")
+(declare-function org-timeblock-toggle-timeblock-list "org-timeblock")
+(declare-function org-timeblock-list-toggle-timeblock "org-timeblock")
+(declare-function org-timeblock-new-task "org-timeblock")
+(declare-function org-timeblock-clock-in "org-timeblock")
+(declare-function org-timeblock-list-clock-in "org-timeblock")
+
 ;;;; Keymaps
 
 (defvar-keymap org-timeblock-mode-map
@@ -114,7 +138,10 @@
 	      (org-timeblock-time-inc 'day (1- org-timeblock-span)
 				 (decode-time)))
    cursor-type nil
-   buffer-read-only t)
+   buffer-read-only t
+   org-timeblock-column 1)
+  ;; Initialize selection to first block in first column
+  (org-timeblock-select-first-block-in-column)
   (org-timeblock-redisplay))
 
 ;;;###autoload
@@ -132,6 +159,157 @@
 
 (with-eval-after-load 'evil
   (require 'org-timeblock-evil))
+
+;;;;; Navigation Functions
+
+;;;###autoload
+(defun org-timeblock-forward-block ()
+  "Move to the next block in the current column."
+  (interactive)
+  (when (eq major-mode 'org-timeblock-mode)
+    (let* ((dates (org-timeblock-get-dates (car org-timeblock-daterange) (cdr org-timeblock-daterange)))
+           (current-date (nth (1- org-timeblock-column) dates))
+           (entries (org-timeblock-get-entries (car org-timeblock-daterange) (cdr org-timeblock-daterange) t))
+           (current-entries (seq-filter 
+                            (lambda (entry)
+                              (when-let ((ts (org-timeblock-get-ts-prop entry)))
+                                (org-timeblock-date= current-date (org-timeblock-timestamp-to-time ts))))
+                            entries))
+           (sorted-entries (sort (copy-sequence current-entries) #'org-timeblock-timestamp<)))
+      (if sorted-entries
+          (let* ((current-index (if org-timeblock-selected-block-id
+                                   (or (seq-position sorted-entries 
+                                                    (seq-find (lambda (e) 
+                                                               (string= (get-text-property 0 'id e) 
+                                                                       org-timeblock-selected-block-id))
+                                                             sorted-entries)
+                                                    #'equal)
+                                       0)
+                                 org-timeblock-selected-block-index))
+                 (next-index (if (< current-index (1- (length sorted-entries)))
+                                (1+ current-index)
+                              0)) ; Wrap to first block
+                 (next-entry (nth next-index sorted-entries)))
+            (setq org-timeblock-selected-block-id (get-text-property 0 'id next-entry)
+                  org-timeblock-selected-block-index next-index)
+            (org-timeblock-redraw-buffers)
+            (message "Selected block: %s" (get-text-property 0 'title next-entry)))
+        (message "No blocks in current column")))))
+
+;;;###autoload
+(defun org-timeblock-backward-block ()
+  "Move to the previous block in the current column."
+  (interactive)
+  (when (eq major-mode 'org-timeblock-mode)
+    (let* ((dates (org-timeblock-get-dates (car org-timeblock-daterange) (cdr org-timeblock-daterange)))
+           (current-date (nth (1- org-timeblock-column) dates))
+           (entries (org-timeblock-get-entries (car org-timeblock-daterange) (cdr org-timeblock-daterange) t))
+           (current-entries (seq-filter 
+                            (lambda (entry)
+                              (when-let ((ts (org-timeblock-get-ts-prop entry)))
+                                (org-timeblock-date= current-date (org-timeblock-timestamp-to-time ts))))
+                            entries))
+           (sorted-entries (sort (copy-sequence current-entries) #'org-timeblock-timestamp<)))
+      (if sorted-entries
+          (let* ((current-index (if org-timeblock-selected-block-id
+                                   (or (seq-position sorted-entries 
+                                                    (seq-find (lambda (e) 
+                                                               (string= (get-text-property 0 'id e) 
+                                                                       org-timeblock-selected-block-id))
+                                                             sorted-entries)
+                                                    #'equal)
+                                       0)
+                                 org-timeblock-selected-block-index))
+                 (prev-index (if (> current-index 0)
+                                (1- current-index)
+                              (1- (length sorted-entries)))) ; Wrap to last block
+                 (prev-entry (nth prev-index sorted-entries)))
+            (setq org-timeblock-selected-block-id (get-text-property 0 'id prev-entry)
+                  org-timeblock-selected-block-index prev-index)
+            (org-timeblock-redraw-buffers)
+            (message "Selected block: %s" (get-text-property 0 'title prev-entry)))
+        (message "No blocks in current column")))))
+
+;;;###autoload
+(defun org-timeblock-forward-column ()
+  "Move to the next column (day)."
+  (interactive)
+  (when (eq major-mode 'org-timeblock-mode)
+    (let ((dates (org-timeblock-get-dates (car org-timeblock-daterange) (cdr org-timeblock-daterange))))
+      (when (< org-timeblock-column (length dates))
+        (setq org-timeblock-column (1+ org-timeblock-column))
+        ;; Select first block in the new column
+        (org-timeblock-select-first-block-in-column)
+        (org-timeblock-redisplay)
+        (message "Moved to column %d" org-timeblock-column)))))
+
+;;;###autoload
+(defun org-timeblock-backward-column ()
+  "Move to the previous column (day)."
+  (interactive)
+  (when (eq major-mode 'org-timeblock-mode)
+    (when (> org-timeblock-column 1)
+      (setq org-timeblock-column (1- org-timeblock-column))
+      ;; Select first block in the new column
+      (org-timeblock-select-first-block-in-column)
+      (org-timeblock-redisplay)
+              (message "Moved to column %d" org-timeblock-column))))
+
+(defun org-timeblock-select-first-block-in-column ()
+  "Select the first block in the current column."
+  (let* ((dates (org-timeblock-get-dates (car org-timeblock-daterange) (cdr org-timeblock-daterange)))
+         (current-date (nth (1- org-timeblock-column) dates))
+         (entries (org-timeblock-get-entries (car org-timeblock-daterange) (cdr org-timeblock-daterange) t))
+         (current-entries (seq-filter 
+                          (lambda (entry)
+                            (when-let ((ts (org-timeblock-get-ts-prop entry)))
+                              (org-timeblock-date= current-date (org-timeblock-timestamp-to-time ts))))
+                          entries))
+         (sorted-entries (sort (copy-sequence current-entries) #'org-timeblock-timestamp<)))
+    (if sorted-entries
+        (let ((first-entry (car sorted-entries)))
+          (setq org-timeblock-selected-block-id (get-text-property 0 'id first-entry)
+                org-timeblock-selected-block-index 0))
+      (setq org-timeblock-selected-block-id nil
+            org-timeblock-selected-block-index 0))))
+
+;;;###autoload
+(defun org-timeblock-day-later ()
+  "Move the date range one day later."
+  (interactive)
+  (setq org-timeblock-daterange
+        (cons (org-timeblock-time-inc 'day 1 (car org-timeblock-daterange))
+              (org-timeblock-time-inc 'day 1 (cdr org-timeblock-daterange))))
+  ;; Reset selection to first block in current column
+  (org-timeblock-select-first-block-in-column)
+  (org-timeblock-redraw-buffers)
+  (message "Moved to later date range"))
+
+;;;###autoload
+(defun org-timeblock-day-earlier ()
+  "Move the date range one day earlier."
+  (interactive)
+  (setq org-timeblock-daterange
+        (cons (org-timeblock-time-inc 'day -1 (car org-timeblock-daterange))
+              (org-timeblock-time-inc 'day -1 (cdr org-timeblock-daterange))))
+  ;; Reset selection to first block in current column
+  (org-timeblock-select-first-block-in-column)
+  (org-timeblock-redraw-buffers)
+  (message "Moved to earlier date range"))
+
+;;;###autoload
+(defun org-timeblock-list-next-line ()
+  "Move to the next line in list mode."
+  (interactive)
+  (when (eq major-mode 'org-timeblock-list-mode)
+    (forward-line 1)))
+
+;;;###autoload
+(defun org-timeblock-list-previous-line ()
+  "Move to the previous line in list mode."
+  (interactive)
+  (when (eq major-mode 'org-timeblock-list-mode)
+    (forward-line -1)))
 
 (provide 'org-timeblock-modes)
 
