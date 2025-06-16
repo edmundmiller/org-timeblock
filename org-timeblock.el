@@ -180,10 +180,10 @@ Otherwise, it may be set to a list of filenames."
 	  (repeat :tag "List of files" file)
 	  (const :tag "Files from (org-agenda-files)" agenda))
   :set (lambda (option value)
-         (set-default option value)
-         (setq org-timeblock-cache nil)
-         (setq org-timeblock-buffers nil)
-         (setq org-timeblock-markers nil)))
+	 (set-default option value)
+	 (setq org-timeblock-cache nil)
+	 (setq org-timeblock-buffers nil)
+	 (setq org-timeblock-markers nil)))
 
 (defcustom org-timeblock-show-outline-path nil
   "Non-nil means show outline path in echo area for the selected item."
@@ -251,6 +251,13 @@ are tagged with a tag in car."
   :type 'list
   :group 'org-timeblock)
 
+(defcustom org-timeblock-evil-keybindings t
+  "Non-nil means enable Evil-mode keybindings in org-timeblock buffers.
+When enabled, provides Vim-like navigation and editing keybindings
+in both `org-timeblock-mode' and `org-timeblock-list-mode'."
+  :group 'org-timeblock
+  :type 'boolean)
+
 ;;;; Variables
 
 (defvar org-timeblock-markers nil)
@@ -286,9 +293,6 @@ are tagged with a tag in car."
 (defvar org-timeblock-list-buffer "*org-timeblock-list*"
   "The name of the buffer displaying the list of tasks and events.")
 
-
-(defvar org-timeblock-keep-done nil)
-
 ;;;; Keymaps
 
 (defvar-keymap org-timeblock-mode-map
@@ -323,7 +327,6 @@ are tagged with a tag in car."
   "%" #'org-timeblock-mark-by-regexp
   "u" #'org-timeblock-unmark-block
   "U" #'org-timeblock-unmark-all-blocks
-  "a" #'org-timeblock-show-all
   "w" #'org-timeblock-write)
 
 (defvar-keymap org-timeblock-list-mode-map
@@ -362,11 +365,127 @@ are tagged with a tag in car."
 				 (decode-time)))
    cursor-type nil
    buffer-read-only t)
-  (org-timeblock-redisplay))
+  (org-timeblock-redisplay)
+  (org-timeblock-setup-evil-keybindings))
 
 (define-derived-mode org-timeblock-list-mode
   special-mode "Org-Timeblock-List" :interactive nil
-  (setq truncate-lines t))
+  (setq truncate-lines t)
+  (org-timeblock-setup-evil-keybindings))
+
+;;;; Evil Integration
+
+(defun org-timeblock-setup-evil-keybindings ()
+  "Set up Evil keybindings for org-timeblock modes."
+  (when (and (featurep 'evil) org-timeblock-evil-keybindings)
+    ;; org-timeblock-mode Evil keybindings
+    (evil-define-key 'normal org-timeblock-mode-map
+      ;; Vim-like navigation
+      "j" 'org-timeblock-forward-block
+      "k" 'org-timeblock-backward-block
+      "h" 'org-timeblock-backward-column
+      "l" 'org-timeblock-forward-column
+      ;; Alternative navigation (original keybindings)
+      "n" 'org-timeblock-forward-block
+      "p" 'org-timeblock-backward-block
+      "f" 'org-timeblock-forward-column
+      "b" 'org-timeblock-backward-column
+      ;; Day navigation
+      "C-f" 'org-timeblock-day-later
+      "C-b" 'org-timeblock-day-earlier
+      ;; Scrolling (Evil-like)
+      "C-d" 'org-timeblock-day-later
+      "C-u" 'org-timeblock-day-earlier
+      ;; Entry actions
+      (kbd "RET") 'org-timeblock-goto
+      (kbd "TAB") 'org-timeblock-goto-other-window
+      "o" 'org-timeblock-goto-other-window
+      ;; Editing
+      "d" 'org-timeblock-set-duration
+      "i" 'org-timeblock-clock-in
+      "O" 'org-clock-out
+      ;; Refresh and navigation
+      "gr" 'org-timeblock-redraw-buffers
+      "gj" 'org-timeblock-jump-to-day
+      "gg" 'org-timeblock-jump-to-day
+      ;; Scheduling and todos
+      "s" 'org-timeblock-schedule
+      "T" 'org-timeblock-toggle-timeblock-list
+      "t" 'org-timeblock-todo
+      ;; View options
+      "v" 'org-timeblock-switch-scaling
+      "V" 'org-timeblock-change-span
+      ;; Marking
+      "m" 'org-timeblock-mark-block
+      "%" 'org-timeblock-mark-by-regexp
+      "u" 'org-timeblock-unmark-block
+      "U" 'org-timeblock-unmark-all-blocks
+      ;; Other actions
+      "w" 'org-timeblock-write
+      "+" 'org-timeblock-new-task
+      "q" 'quit-window
+      "ZZ" 'quit-window
+      "ZQ" 'quit-window
+      "C-s" 'org-save-all-org-buffers)
+
+    ;; org-timeblock-list-mode Evil keybindings
+    (evil-define-key 'normal org-timeblock-list-mode-map
+      ;; Vim-like navigation
+      "j" 'org-timeblock-list-next-line
+      "k" 'org-timeblock-list-previous-line
+      ;; Alternative navigation (original keybindings)
+      "n" 'org-timeblock-list-next-line
+      "p" 'org-timeblock-list-previous-line
+      ;; Day navigation
+      "f" 'org-timeblock-day-later
+      "b" 'org-timeblock-day-earlier
+      "C-f" 'org-timeblock-day-later
+      "C-b" 'org-timeblock-day-earlier
+      ;; Scrolling (Evil-like)
+      "C-d" 'org-timeblock-day-later
+      "C-u" 'org-timeblock-day-earlier
+      ;; Entry actions
+      (kbd "RET") 'org-timeblock-list-goto
+      (kbd "TAB") 'org-timeblock-list-goto-other-window
+      "o" 'org-timeblock-list-goto-other-window
+      ;; Editing
+      "d" 'org-timeblock-list-set-duration
+      "i" 'org-timeblock-list-clock-in
+      "O" 'org-clock-out
+      ;; Refresh and navigation
+      "gr" 'org-timeblock-redraw-buffers
+      "gj" 'org-timeblock-jump-to-day
+      "gg" 'org-timeblock-jump-to-day
+      ;; Quit
+      "q" 'org-timeblock-quit
+      "ZZ" 'org-timeblock-quit
+      "ZQ" 'org-timeblock-quit
+      ;; Scheduling and todos
+      "s" 'org-timeblock-list-schedule
+      "T" 'org-timeblock-list-toggle-timeblock
+      "t" 'org-timeblock-todo
+      ;; View options
+      "v" 'org-timeblock-switch-scaling
+      "V" 'org-timeblock-change-span
+      ;; Other actions
+      "+" 'org-timeblock-new-task
+      "C-s" 'org-save-all-org-buffers)))
+
+;;;###autoload
+(defun org-timeblock-evil-setup ()
+  "Manually set up Evil keybindings for org-timeblock.
+This function can be called by users who want to set up Evil keybindings
+manually, or if the automatic setup doesn't work for some reason."
+  (interactive)
+  (org-timeblock-setup-evil-keybindings))
+
+;; Set up Evil keybindings when Evil is loaded
+(with-eval-after-load 'evil
+  (org-timeblock-setup-evil-keybindings))
+
+;; Also set up keybindings if Evil is already loaded
+(when (featurep 'evil)
+  (org-timeblock-setup-evil-keybindings))
 
 ;;;; Functions
 
@@ -1225,71 +1344,70 @@ If MARKER is nil, use timestamp at point."
 (defun org-timeblock-get-buffer-entries-all (buffer)
   "Get all not done and not archived entries with any active timestamp in BUFFER."
   (let (entries tags
-		        update-markers-alist-p
-		        (buffer-markers
-		         (alist-get buffer
-			                org-timeblock-markers nil nil #'equal)))
+		update-markers-alist-p
+		(buffer-markers
+		 (alist-get buffer
+			    org-timeblock-markers nil nil #'equal)))
     (with-current-buffer buffer
       (org-with-wide-buffer
        (goto-char (point-min))
        (while (re-search-forward org-tsr-regexp nil t)
-	     (if (save-match-data
-		       (progn
-		         (setq tags
-			           (mapcar #'substring-no-properties
-				               (org-get-tags)))
-		         (member org-archive-tag tags)))
-	         (org-get-next-sibling)
-	       (when-let
-	           ((timestamp-and-type
-		         (save-excursion
-		           (goto-char (match-beginning 0))
-		           (list
-		            (org-element-timestamp-parser)
-		            (save-excursion
-		              (cond
-		               ((re-search-backward
-			             (concat org-scheduled-regexp "[ \t]*\\=")
-			             nil
-			             t)
-			            'sched)
-		               ((re-search-backward
-			             (concat org-deadline-regexp "[ \t]*\\=")
-			             nil
-			             t)
-			            'deadline)
-		               (t 'event)))
-		            (or (seq-find (lambda (x) (= x (point))) buffer-markers)
-			            (let ((marker (copy-marker (point) t)))
-			              (setq update-markers-alist-p t)
-			              (push marker buffer-markers)
-			              marker)))))
-		        (timestamp (car timestamp-and-type))
-		        (type (cadr timestamp-and-type))
-		        (marker (caddr timestamp-and-type))
-		        (start-ts (org-timeblock-timestamp-to-time
-			               timestamp))
-		        (title (or (org-get-heading t nil t t) "no title"))
-                (done (if (org-entry-is-done-p) 'y 'n)))
-	         (save-excursion
-	           (org-back-to-heading-or-point-min t)
-	           (push
-		        (propertize
-		         (concat
-		          (org-timeblock--construct-prefix timestamp type)
-		          title)
-		         'type type
-		         'timestamp timestamp
-		         'marker marker
-		         'tags tags
-		         'id (org-timeblock-construct-id marker)
-		         'title title
-                 'done done)
-		        entries)))))))
+	 (if (save-match-data
+	       (or (org-entry-is-done-p)
+		   (progn
+		     (setq tags
+			   (mapcar #'substring-no-properties
+				   (org-get-tags)))
+		     (member org-archive-tag tags))))
+	     (org-get-next-sibling)
+	   (when-let
+	       ((timestamp-and-type
+		 (save-excursion
+		   (goto-char (match-beginning 0))
+		   (list
+		    (org-element-timestamp-parser)
+		    (save-excursion
+		      (cond
+		       ((re-search-backward
+			 (concat org-scheduled-regexp "[ \t]*\\=")
+			 nil
+			 t)
+			'sched)
+		       ((re-search-backward
+			 (concat org-deadline-regexp "[ \t]*\\=")
+			 nil
+			 t)
+			'deadline)
+		       (t 'event)))
+		    (or (seq-find (lambda (x) (= x (point))) buffer-markers)
+			(let ((marker (copy-marker (point) t)))
+			  (setq update-markers-alist-p t)
+			  (push marker buffer-markers)
+			  marker)))))
+		(timestamp (car timestamp-and-type))
+		(type (cadr timestamp-and-type))
+		(marker (caddr timestamp-and-type))
+		(start-ts (org-timeblock-timestamp-to-time
+			   timestamp))
+		(title (or (org-get-heading t nil t t) "no title")))
+	     (save-excursion
+	       (org-back-to-heading-or-point-min t)
+	       (push
+		(propertize
+		 (concat
+		  (org-timeblock--construct-prefix timestamp type)
+		  title)
+		 'type type
+		 'timestamp timestamp
+		 'marker marker
+		 'tags tags
+		 'id (org-timeblock-construct-id marker)
+		 'title title)
+		entries)))))))
     (when update-markers-alist-p
       (setf
        (alist-get buffer
-		          org-timeblock-markers nil nil #'equal)
+		  org-timeblock-markers nil nil #'equal)
        buffer-markers))
     entries))
 
@@ -1303,33 +1421,28 @@ without time."
   (seq-filter
    (lambda (x)
      (when-let
-         ((timestamp (org-timeblock-get-ts-prop x))
-          (done (or (get-text-property 0 'done x) 'n))
-          ((or (not timeblocks)
-               (and
-                (not (org-timeblock--daterangep timestamp))
-                (org-element-property :hour-start timestamp))))
-          (start-ts (org-timeblock-timestamp-to-time
-                     timestamp)))
-       (and
-        (or (eq done 'n)
-            (and org-timeblock-keep-done (eq done 'y)))
-        (or
-         (and
-          (org-element-property
-           :repeater-type timestamp)
-          (org-timeblock-date<= start-ts from))
-         (and
-          (org-timeblock-date<= from start-ts)
-          (org-timeblock-date<= start-ts to))
-
-         (let ((end-ts
-                (org-timeblock-timestamp-to-time
-                 timestamp t)))
-           (and
-            end-ts
-            (org-timeblock-date<= from end-ts)
-            (org-timeblock-date<= end-ts to)))))))
+	 ((timestamp (org-timeblock-get-ts-prop x))
+	  ((or (not timeblocks)
+	       (and
+		(not (org-timeblock--daterangep timestamp))
+		(org-element-property :hour-start timestamp))))
+	  (start-ts (org-timeblock-timestamp-to-time
+		     timestamp)))
+       (or
+	(and
+	 (org-element-property
+	  :repeater-type timestamp)
+	 (org-timeblock-date<= start-ts from))
+	(and
+	 (org-timeblock-date<= from start-ts)
+	 (org-timeblock-date<= start-ts to))
+	(let ((end-ts
+	       (org-timeblock-timestamp-to-time
+		timestamp t)))
+	  (and
+	   end-ts
+	   (org-timeblock-date<= from end-ts)
+	   (org-timeblock-date<= end-ts to))))))
    org-timeblock-cache))
 
 (defun org-timeblock-update-cache ()
@@ -2310,12 +2423,6 @@ Available view options:
       (delete-window window)
     (org-timeblock-show-timeblock-list))
   (org-timeblock-redraw-buffers))
-
-(defun org-timeblock-show-all()
-  "Redraws the timeblock buffers with DONE entries as well."
-  (interactive)
-  (let ((org-timeblock-keep-done t))
-    (org-timeblock-redraw-buffers)))
 
 (defun org-timeblock-redraw-buffers ()
   "Redraw `org-timeblock-list-mode' and `org-timeblock-timeline-mode' buffers."

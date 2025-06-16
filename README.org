@@ -156,6 +156,47 @@ Almost all commands with the same bindings are available in
 
 ~M-x customize-group org-timeblock~ to see available customizable variables.
 
+** Evil Mode Integration
+
+org-timeblock includes built-in support for Evil mode (Vim emulation). When Evil is loaded, org-timeblock automatically provides Vim-like keybindings in addition to the standard Emacs keybindings.
+
+*** Evil Keybindings
+
+**** org-timeblock-mode Evil keybindings:
+- ~j/k~ - Navigate between blocks (down/up)
+- ~h/l~ - Navigate between columns (left/right)  
+- ~C-d/C-u~ - Navigate between days (forward/backward)
+- ~gg~ - Jump to specific day
+- ~gr~ - Refresh/redraw buffers
+- ~o~ - Open entry in other window
+- ~q/ZZ/ZQ~ - Quit window
+- ~m~ - Mark block
+- ~u~ - Unmark block
+- All other standard org-timeblock commands work as expected
+
+**** org-timeblock-list-mode Evil keybindings:
+- ~j/k~ - Navigate between entries (down/up)
+- ~C-d/C-u~ - Navigate between days (forward/backward)
+- ~gg~ - Jump to specific day
+- ~gr~ - Refresh/redraw buffers
+- ~o~ - Open entry in other window
+- ~q/ZZ/ZQ~ - Quit window
+- All other standard org-timeblock commands work as expected
+
+*** Configuration
+
+Evil keybindings are enabled by default when Evil is detected. You can disable them by setting:
+
+#+begin_src elisp
+(setq org-timeblock-evil-keybindings nil)
+#+end_src
+
+If you need to manually set up Evil keybindings (e.g., if automatic setup doesn't work), you can call:
+
+#+begin_src elisp
+(org-timeblock-evil-setup)
+#+end_src
+
 * TODOs
 :PROPERTIES:
 :CUSTOM_ID: todos
