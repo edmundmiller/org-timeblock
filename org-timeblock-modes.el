@@ -25,15 +25,23 @@
 
 ;;; Commentary:
 
-;; This file contains the mode definitions, keymaps, and Evil
-;; integration for org-timeblock.
+;; This file contains the mode definitions and keymaps for org-timeblock.
 
 ;;; Code:
+
+(eval-when-compile
+  (require 'org-timeblock-config)
+  (require 'org-timeblock-util)
+  (require 'org-timeblock-org))
 
 (require 'org-timeblock-config)
 (require 'org-timeblock-util)
 (require 'org-timeblock-org)
-(require 'org-timeblock-draw)
+
+(declare-function org-timeblock-redisplay "org-timeblock-draw")
+(declare-function org-timeblock-redraw-buffers "org-timeblock-draw")
+(declare-function org-timeblock-write "org-timeblock-draw")
+(declare-function org-timeblock-select-block-with-cursor "org-timeblock-draw")
 
 ;;;; Keymaps
 
@@ -109,11 +117,21 @@
    buffer-read-only t)
   (org-timeblock-redisplay))
 
+;;;###autoload
+(defun org-timeblock-list-mode-set-highlights ()
+  "Set font-lock highlights for `org-timeblock-list-mode'."
+  (font-lock-add-keywords
+   'org-timeblock-list-mode
+   '(("^\\([0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\)" 1 font-lock-string-face t)
+     ("[0-9]\\{2\\}:[0-9]\\{2\\}" 0 font-lock-function-name-face t))))
+
 (define-derived-mode org-timeblock-list-mode
   special-mode "Org-Timeblock-List" :interactive nil
-  (setq truncate-lines t))
+  (setq truncate-lines t)
+  (org-timeblock-list-mode-set-highlights))
 
-(require 'org-timeblock-evil nil t)
+(with-eval-after-load 'evil
+  (require 'org-timeblock-evil))
 
 (provide 'org-timeblock-modes)
 

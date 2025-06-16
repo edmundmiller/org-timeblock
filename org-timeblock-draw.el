@@ -513,6 +513,33 @@ SVG image (.svg), PDF (.pdf) is produced."
 	((or "svg" `nil) (write-region nil nil file)))
       (org-timeblock-redraw-timeblocks))))
 
+;;;###autoload
+(defun org-timeblock-redraw-buffers ()
+  "Redraw both `org-timeblock' and `org-timeblock-list' buffers."
+  (interactive)
+  (org-timeblock-redraw-timeblocks)
+  ;; Handle list buffer redraw if it exists and is visible
+  (when (get-buffer org-timeblock-list-buffer)
+    (with-current-buffer org-timeblock-list-buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (when-let ((entries (org-timeblock-get-entries
+                            (car org-timeblock-daterange)
+                            (cdr org-timeblock-daterange)))
+                  (dates (org-timeblock-get-dates
+                         (car org-timeblock-daterange)
+                         (cdr org-timeblock-daterange))))
+          (dolist (date dates)
+            (insert (propertize (format-time-string "%Y-%m-%d %A" date)
+                               'face 'org-timeblock-list-header))
+            (insert "\n")
+            (dolist (entry entries)
+              (when (and (org-timeblock-get-ts-prop entry)
+                        (org-timeblock-date= date (org-timeblock-timestamp-to-time 
+                                                  (org-timeblock-get-ts-prop entry))))
+                (insert entry "\n")))))
+        (org-timeblock-list-mode-set-highlights)))))
+
 (provide 'org-timeblock-draw)
 
 ;;; org-timeblock-draw.el ends here 

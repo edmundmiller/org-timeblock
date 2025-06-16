@@ -29,9 +29,22 @@
 
 ;;; Code:
 
+(eval-when-compile
+  (require 'evil)
+  (require 'org-timeblock-config)
+  (require 'org-timeblock-util)
+  (require 'org-timeblock-org))
+
 (require 'evil)
-(require 'org-timeblock-modes)
 (require 'org-timeblock-config)
+(require 'org-timeblock-util)
+(require 'org-timeblock-org)
+(require 'org-timeblock-draw)
+
+;;;###autoload
+(defvar org-timeblock-mode-map)
+;;;###autoload
+(defvar org-timeblock-list-mode-map)
 
 ;;;; Evil Integration
 
