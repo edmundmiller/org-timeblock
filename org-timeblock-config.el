@@ -103,9 +103,9 @@
     (((class color)
       (min-colors 88)
       (background light))
-     :background "#f3d000")
+     :background "#ff6600")
     (((class color) (min-colors 88) (background dark))
-     :background "#3f1651")
+     :background "#ff3300")
     (t :inverse-video t))
   "Face used for selected blocks."
   :group 'org-timeblock)
